@@ -38,9 +38,9 @@ export default function Page() {
   const [level, setLevel] = useState(1);
 
   /* HERO */
-  const [heroHP, setHeroHP] = useState(100);
-  const [heroMaxHP, setHeroMaxHP] = useState(100);
-  const [heroDamage, setHeroDamage] = useState(5); // NEW
+  const [heroHP, setHeroHP] = useState(120); // base HP arttı
+  const [heroMaxHP, setHeroMaxHP] = useState(120);
+  const [heroDamage, setHeroDamage] = useState(12); // base damage arttı
   const hero = { x: 400, y: 300 };
 
   /* SKILLS */
@@ -53,8 +53,8 @@ export default function Page() {
     fireDamage: 0,
     iceSlow: 0,
     iceDamage: 0,
-    hpBoost: 0, // NEW
-    baseDamage: 0, // NEW skill to increase heroDamage
+    hpBoost: 0,
+    baseDamage: 0,
   });
 
   const [enemySpeedMultiplier, setEnemySpeedMultiplier] = useState(1);
@@ -77,11 +77,11 @@ export default function Page() {
       setLevel((l) => l + 1);
       setSkillPoints((p) => p + 1);
 
-      const newMax = 100 + level * 10 + skills.hpBoost * 5;
+      const newMax = 120 + level * 10 + skills.hpBoost * 5;
       setHeroMaxHP(newMax);
       setHeroHP(newMax);
 
-      setHeroDamage(5 + skills.baseDamage * 2 + level); // increase heroDamage
+      setHeroDamage(12 + skills.baseDamage * 2 + level); // update damage
     }
   }, [exp, nextLevelExp, level, skills.hpBoost, skills.baseDamage]);
 
@@ -91,9 +91,11 @@ export default function Page() {
       const r = Math.random();
       const isBear = r < 0.1;
       const type: EnemyType = isBear ? "bear" : "wolf";
-      const baseHP = type === "wolf" ? 10 : 25;
-      const multiplier = type === "wolf" ? 3 : 6;
-      const dmg = type === "wolf" ? 1 + level : 3 + level * 1.5;
+
+      // Daha kolay: HP azaltıldı
+      const baseHP = type === "wolf" ? 7 : 18;
+      const multiplier = type === "wolf" ? 2 : 5;
+      const dmg = type === "wolf" ? 1 + level : 3 + level * 1.2;
 
       enemies.current.push({
         id: idRef.current++,
@@ -227,28 +229,22 @@ export default function Page() {
   }, [skills, level, heroDamage, enemySpeedMultiplier, enemyDamageMultiplier]);
 
   const handleReplay = () => {
-    // Hero full HP
-    const newMaxHP = 100 + skills.hpBoost * 5;
+    const newMaxHP = 120 + skills.hpBoost * 5;
     setHeroMaxHP(newMaxHP);
     setHeroHP(newMaxHP);
 
-    // Reset score, level, exp
     setScore(0);
     setExp(0);
     setLevel(1);
 
-    // Clear enemies and nukes
     enemies.current = [];
     nukes.current = [];
 
-    // Reset timer
     setTime(600);
 
-    // NEW: Increase enemy power after death
     setEnemySpeedMultiplier((prev) => prev * 1.2);
     setEnemyDamageMultiplier((prev) => prev * 1.2);
 
-    // Clear canvas
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -277,7 +273,6 @@ export default function Page() {
         <button onClick={() => setShowSkills(true)}>🧠 Skills ({skillPoints})</button>
       </div>
 
-      {/* EXP BAR */}
       <div style={{ width: "80%", margin: "10px auto" }}>
         <div style={{ fontSize: 12 }}>
           EXP: {Math.floor(exp)} / {nextLevelExp}
@@ -296,7 +291,6 @@ export default function Page() {
 
       <canvas ref={canvasRef} />
 
-      {/* Skills Popup */}
       {showSkills && (
         <div
           style={{
@@ -328,12 +322,12 @@ export default function Page() {
                   setSkillPoints((p) => p - 1);
 
                   if (k === "hpBoost") {
-                    const newMax = 100 + level * 10 + (v + 1) * 5;
+                    const newMax = 120 + level * 10 + (v + 1) * 5;
                     setHeroMaxHP(newMax);
                     setHeroHP(newMax);
                   }
                   if (k === "baseDamage") {
-                    setHeroDamage(5 + (v + 1) * 2 + level);
+                    setHeroDamage(12 + (v + 1) * 2 + level);
                   }
                 }}
                 style={{
