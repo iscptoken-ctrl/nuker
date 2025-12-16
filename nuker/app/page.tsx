@@ -85,7 +85,7 @@ export default function Page() {
     }
   }, [exp, nextLevelExp, level, skills.hpBoost, skills.baseDamage]);
 
-  /* SPAWN */
+  /* SPAWN ENEMIES */
   useEffect(() => {
     const spawn = setInterval(() => {
       const r = Math.random();
@@ -111,6 +111,25 @@ export default function Page() {
 
     return () => clearInterval(spawn);
   }, [level, enemySpeedMultiplier, enemyDamageMultiplier]);
+
+  /* SPAWN BOSS */
+  useEffect(() => {
+    const bossInterval = setInterval(() => {
+      enemies.current.push({
+        id: idRef.current++,
+        x: Math.random() * 800,
+        y: Math.random() * 600,
+        type: "boss",
+        hp: 200 + level * 50,
+        maxHp: 200 + level * 50,
+        slow: 0,
+        burn: 0,
+        damage: 5 + level * 2,
+      });
+    }, 60000); // her 1 dk
+
+    return () => clearInterval(bossInterval);
+  }, [level]);
 
   /* AUTO ATTACK */
   useEffect(() => {
@@ -175,7 +194,15 @@ export default function Page() {
           );
         }
 
-        ctx.fillText(e.type === "wolf" ? "🐺" : "🐻", e.x, e.y);
+        // Draw enemy
+        const emoji = e.type === "wolf" ? "🐺" : e.type === "bear" ? "🐻" : "🐘";
+        ctx.fillText(emoji, e.x, e.y);
+
+        // Boss HP bar
+        if (e.type === "boss") {
+          ctx.fillStyle = "#ff0000";
+          ctx.fillRect(e.x - 20, e.y - 20, (e.hp / e.maxHp) * 40, 5);
+        }
       });
 
       // Nukes
@@ -183,6 +210,13 @@ export default function Page() {
         n.x += n.vx;
         n.y += n.vy;
 
+        // Nuke visual
+        ctx.fillStyle =
+          n.type === "lightning"
+            ? "#ffff00"
+            : n.type === "fire"
+            ? "#ff4500"
+            : "#00ffff";
         ctx.fillText(
           n.type === "lightning" ? "⚡" : n.type === "fire" ? "🔥" : "❄️",
           n.x,
@@ -210,8 +244,12 @@ export default function Page() {
           if (n.type === "fire") hitEnemy.burn = 180 + skills.fireBurn * 60;
 
           if (hitEnemy.hp <= 0) {
-            setScore((s) => s + (hitEnemy.type === "bear" ? 25 : 10));
-            setExp((e) => e + (hitEnemy.type === "bear" ? 20 : 10));
+            setScore((s) =>
+              s + (hitEnemy.type === "bear" ? 25 : hitEnemy.type === "boss" ? 100 : 10)
+            );
+            setExp((e) =>
+              e + (hitEnemy.type === "bear" ? 20 : hitEnemy.type === "boss" ? 80 : 10)
+            );
             enemies.current = enemies.current.filter((en) => en.hp > 0);
           }
 
@@ -240,11 +278,9 @@ export default function Page() {
     nukes.current = [];
     setTime(600);
 
-    // Multiplier sıfırlanıyor
     setEnemySpeedMultiplier(1);
     setEnemyDamageMultiplier(1);
 
-    // Hero base güçlendirme
     setHeroDamage(12 + skills.baseDamage * 2);
   };
 
