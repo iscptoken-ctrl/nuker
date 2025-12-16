@@ -27,6 +27,29 @@ export default function Page() {
 
   const hero = { x: 400, y: 300 };
 
+  const [time, setTime] = useState(600);
+  const [score, setScore] = useState(0);
+  const [exp, setExp] = useState(0);
+  const [level, setLevel] = useState(1);
+
+  const nextLevelExp = 50 * level + 50;
+
+  // TIMER
+  useEffect(() => {
+    const t = setInterval(() => {
+      setTime((v) => (v > 0 ? v - 1 : 0));
+    }, 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // LEVEL UP
+  useEffect(() => {
+    if (exp >= nextLevelExp) {
+      setExp((e) => e - nextLevelExp);
+      setLevel((l) => l + 1);
+    }
+  }, [exp, nextLevelExp]);
+
   // SPAWN
   useEffect(() => {
     const spawn = setInterval(() => {
@@ -39,9 +62,9 @@ export default function Page() {
         hp: type === "wolf" ? 1 : 2,
         slow: 0,
       });
-    }, 900);
+    }, Math.max(300, 900 - level * 50));
     return () => clearInterval(spawn);
-  }, []);
+  }, [level]);
 
   // AUTO ATTACK
   useEffect(() => {
@@ -73,7 +96,6 @@ export default function Page() {
         type,
       });
     }, 600);
-
     return () => clearInterval(fire);
   }, []);
 
@@ -88,7 +110,6 @@ export default function Page() {
       ctx.fillStyle = "#0b1020";
       ctx.fillRect(0, 0, 800, 600);
 
-      // HERO
       ctx.font = "32px serif";
       ctx.fillText("👦🏻", hero.x - 12, hero.y + 12);
 
@@ -122,6 +143,17 @@ export default function Page() {
             e.hp--;
             if (n.type === "ice") e.slow = 0.5;
             hit = true;
+
+            if (e.hp <= 0) {
+              if (e.type === "wolf") {
+                setScore((s) => s + 10);
+                setExp((x) => x + 10);
+              } else {
+                setScore((s) => s + 25);
+                setExp((x) => x + 20);
+              }
+            }
+
             return e.hp > 0;
           }
           return true;
@@ -136,8 +168,17 @@ export default function Page() {
   }, []);
 
   return (
-    <main style={{ textAlign: "center", color: "white" }}>
+    <main style={{ color: "white", textAlign: "center" }}>
       <h1>NUKER</h1>
+
+      {/* HUD */}
+      <div style={{ display: "flex", justifyContent: "space-around" }}>
+        <div>⏱️ {Math.floor(time / 60)}:{String(time % 60).padStart(2, "0")}</div>
+        <div>⭐ Score: {score}</div>
+        <div>🧪 EXP: {exp} / {nextLevelExp}</div>
+        <div>🆙 Lv {level}</div>
+      </div>
+
       <canvas ref={canvasRef} />
     </main>
   );
