@@ -38,9 +38,9 @@ export default function Page() {
   const [level, setLevel] = useState(1);
 
   /* HERO */
-  const [heroHP, setHeroHP] = useState(120); // base HP arttı
+  const [heroHP, setHeroHP] = useState(120); // base HP
   const [heroMaxHP, setHeroMaxHP] = useState(120);
-  const [heroDamage, setHeroDamage] = useState(12); // base damage arttı
+  const [heroDamage, setHeroDamage] = useState(12); // base damage
   const hero = { x: 400, y: 300 };
 
   /* SKILLS */
@@ -93,7 +93,7 @@ export default function Page() {
       const type: EnemyType = isBear ? "bear" : "wolf";
 
       // Daha kolay: HP azaltıldı
-      const baseHP = type === "wolf" ? 7 : 18;
+      const baseHP = type === "wolf" ? 5 : 15;
       const multiplier = type === "wolf" ? 2 : 5;
       const dmg = type === "wolf" ? 1 + level : 3 + level * 1.2;
 
@@ -172,7 +172,7 @@ export default function Page() {
         const distToHero = Math.hypot(hero.x - e.x, hero.y - e.y);
         if (distToHero < 20) {
           setHeroHP((hp) =>
-            Math.max(0, hp - e.damage * 0.02 * enemyDamageMultiplier)
+            Math.max(0, hp - e.damage * 0.015 * enemyDamageMultiplier)
           );
         }
 
@@ -242,8 +242,13 @@ export default function Page() {
 
     setTime(600);
 
-    setEnemySpeedMultiplier((prev) => prev * 1.2);
-    setEnemyDamageMultiplier((prev) => prev * 1.2);
+    // Hafif artış → artık çok sert değil
+    setEnemySpeedMultiplier(1.05);
+    setEnemyDamageMultiplier(1.05);
+
+    setHeroDamage((prev) => prev + 2);
+    setHeroMaxHP((prev) => prev + 10);
+    setHeroHP((prev) => prev + 10);
 
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
