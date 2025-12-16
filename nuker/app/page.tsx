@@ -40,6 +40,7 @@ export default function Page() {
   /* HERO */
   const [heroHP, setHeroHP] = useState(100);
   const [heroMaxHP, setHeroMaxHP] = useState(100);
+  const [heroDamage, setHeroDamage] = useState(5); // NEW
   const hero = { x: 400, y: 300 };
 
   /* SKILLS */
@@ -53,7 +54,11 @@ export default function Page() {
     iceSlow: 0,
     iceDamage: 0,
     hpBoost: 0, // NEW
+    baseDamage: 0, // NEW skill to increase heroDamage
   });
+
+  const [enemySpeedMultiplier, setEnemySpeedMultiplier] = useState(1);
+  const [enemyDamageMultiplier, setEnemyDamageMultiplier] = useState(1);
 
   const nextLevelExp = 100 + (level - 1) * 50;
 
@@ -75,8 +80,10 @@ export default function Page() {
       const newMax = 100 + level * 10 + skills.hpBoost * 5;
       setHeroMaxHP(newMax);
       setHeroHP(newMax);
+
+      setHeroDamage(5 + skills.baseDamage * 2 + level); // increase heroDamage
     }
-  }, [exp, nextLevelExp, level, skills.hpBoost]);
+  }, [exp, nextLevelExp, level, skills.hpBoost, skills.baseDamage]);
 
   /* SPAWN */
   useEffect(() => {
@@ -86,7 +93,6 @@ export default function Page() {
       const type: EnemyType = isBear ? "bear" : "wolf";
       const baseHP = type === "wolf" ? 10 : 25;
       const multiplier = type === "wolf" ? 3 : 6;
-
       const dmg = type === "wolf" ? 1 + level : 3 + level * 1.5;
 
       enemies.current.push({
@@ -98,12 +104,12 @@ export default function Page() {
         maxHp: baseHP + level * multiplier,
         slow: 0,
         burn: 0,
-        damage: dmg,
+        damage: dmg * enemyDamageMultiplier,
       });
-    }, Math.max(1200 - level * 30, 400));
+    }, Math.max(1200 - level * 30, 400) / enemySpeedMultiplier);
 
     return () => clearInterval(spawn);
-  }, [level]);
+  }, [level, enemySpeedMultiplier, enemyDamageMultiplier]);
 
   /* AUTO ATTACK */
   useEffect(() => {
@@ -128,7 +134,7 @@ export default function Page() {
     }, 500);
 
     return () => clearInterval(fire);
-  }, [skills, level]);
+  }, [skills, level, hero.x, hero.y]);
 
   /* GAME LOOP */
   useEffect(() => {
@@ -157,13 +163,15 @@ export default function Page() {
         const d = Math.hypot(dx, dy) || 1;
         const slow = Math.min(0.8, e.slow * (0.3 + skills.iceSlow * 0.2));
 
-        e.x += (dx / d) * 0.6 * (1 - slow);
-        e.y += (dy / d) * 0.6 * (1 - slow);
+        e.x += (dx / d) * 0.6 * (1 - slow) * enemySpeedMultiplier;
+        e.y += (dy / d) * 0.6 * (1 - slow) * enemySpeedMultiplier;
 
         // Enemy hits hero
         const distToHero = Math.hypot(hero.x - e.x, hero.y - e.y);
         if (distToHero < 20) {
-          setHeroHP((hp) => Math.max(0, hp - e.damage * 0.02));
+          setHeroHP((hp) =>
+            Math.max(0, hp - e.damage * 0.02 * enemyDamageMultiplier)
+          );
         }
 
         ctx.fillText(e.type === "wolf" ? "🐺" : "🐻", e.x, e.y);
@@ -185,7 +193,7 @@ export default function Page() {
         );
 
         if (hitEnemy) {
-          const baseDmg = 4 + level * 1.5;
+          const baseDmg = heroDamage;
           const dmg =
             baseDmg *
             (1 +
@@ -216,7 +224,7 @@ export default function Page() {
     };
 
     loop();
-  }, [skills, level]);
+  }, [skills, level, heroDamage, enemySpeedMultiplier, enemyDamageMultiplier]);
 
   const handleReplay = () => {
     // Hero full HP
@@ -236,7 +244,11 @@ export default function Page() {
     // Reset timer
     setTime(600);
 
-    // Clear canvas to prevent black screen
+    // NEW: Increase enemy power after death
+    setEnemySpeedMultiplier((prev) => prev * 1.2);
+    setEnemyDamageMultiplier((prev) => prev * 1.2);
+
+    // Clear canvas
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -320,6 +332,9 @@ export default function Page() {
                     setHeroMaxHP(newMax);
                     setHeroHP(newMax);
                   }
+                  if (k === "baseDamage") {
+                    setHeroDamage(5 + (v + 1) * 2 + level);
+                  }
                 }}
                 style={{
                   padding: 12,
@@ -335,7 +350,8 @@ export default function Page() {
                     .replace("lightning", "⚡ Lightning ")
                     .replace("fire", "🔥 Fire ")
                     .replace("ice", "❄️ Ice ")
-                    .replace("hpBoost", "❤️ HP Boost ")}
+                    .replace("hpBoost", "❤️ HP Boost ")
+                    .replace("baseDamage", "💥 Base Damage ")}
                 </b>
                 <div>Level: {v}</div>
               </div>
