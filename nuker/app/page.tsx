@@ -219,21 +219,29 @@ export default function Page() {
     loop();
   }, [skills, level]);
 
+  const handleReplay = () => {
+    // Hero full HP
+    const newMaxHP = 100 + skills.hpBoost * 5;
+    setHeroMaxHP(newMaxHP);
+    setHeroHP(newMaxHP);
+
+    // Reset score and level
+    setScore(0);
+    setExp(0);
+    setLevel(1);
+
+    // Clear enemies and nukes
+    enemies.current = [];
+    nukes.current = [];
+    setTime(600);
+  };
+
   if (heroHP <= 0)
     return (
       <main style={{ color: "white", textAlign: "center" }}>
         <h1>💀 GAME OVER 💀</h1>
         <p>Score: {score}</p>
-        <button
-          onClick={() => {
-            setHeroHP(heroMaxHP);
-            enemies.current = [];
-            nukes.current = [];
-            setTime(600);
-          }}
-        >
-          Replay
-        </button>
+        <button onClick={handleReplay}>Replay</button>
       </main>
     );
 
