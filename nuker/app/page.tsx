@@ -41,7 +41,7 @@ export default function Page() {
   const [heroHP, setHeroHP] = useState(120);
   const [heroMaxHP, setHeroMaxHP] = useState(120);
   const [heroDamage, setHeroDamage] = useState(12);
-  const hero = { x: 400, y: 300 };
+  const [heroPos, setHeroPos] = useState({ x: 400, y: 300 });
 
   /* SKILLS */
   const [skillPoints, setSkillPoints] = useState(0);
@@ -56,9 +56,6 @@ export default function Page() {
     hpBoost: 0,
     baseDamage: 0,
   });
-
-  const [enemySpeedMultiplier, setEnemySpeedMultiplier] = useState(1);
-  const [enemyDamageMultiplier, setEnemyDamageMultiplier] = useState(1);
 
   const nextLevelExp = 100 + (level - 1) * 50;
 
@@ -85,76 +82,96 @@ export default function Page() {
     }
   }, [exp, nextLevelExp, level, skills.hpBoost, skills.baseDamage]);
 
-  /* SPAWN ENEMIES */
+  /* INITIAL ENEMIES */
   useEffect(() => {
-    const spawn = setInterval(() => {
-      const r = Math.random();
-      const isBear = r < 0.1;
-      const type: EnemyType = isBear ? "bear" : "wolf";
-
-      const baseHP = type === "wolf" ? 5 : 15;
-      const multiplier = type === "wolf" ? 2 : 5;
-      const dmg = type === "wolf" ? 1 + level : 3 + level * 1.2;
-
-      enemies.current.push({
+    const initEnemies: Enemy[] = [];
+    for (let i = 0; i < 10; i++) {
+      initEnemies.push({
         id: idRef.current++,
         x: Math.random() * 800,
         y: Math.random() * 600,
-        type,
-        hp: baseHP + level * multiplier,
-        maxHp: baseHP + level * multiplier,
+        type: "wolf",
+        hp: 5 + level * 2,
+        maxHp: 5 + level * 2,
         slow: 0,
         burn: 0,
-        damage: dmg * enemyDamageMultiplier,
+        damage: 1 + level,
       });
-    }, Math.max(1200 - level * 30, 400) / enemySpeedMultiplier);
-
-    return () => clearInterval(spawn);
-  }, [level, enemySpeedMultiplier, enemyDamageMultiplier]);
-
-  /* SPAWN BOSS */
-  useEffect(() => {
-    const bossInterval = setInterval(() => {
-      enemies.current.push({
+    }
+    for (let i = 0; i < 2; i++) {
+      initEnemies.push({
         id: idRef.current++,
         x: Math.random() * 800,
         y: Math.random() * 600,
-        type: "boss",
-        hp: 200 + level * 50,
-        maxHp: 200 + level * 50,
+        type: "bear",
+        hp: 15 + level * 5,
+        maxHp: 15 + level * 5,
         slow: 0,
         burn: 0,
-        damage: 5 + level * 2,
+        damage: 3 + level * 1.2,
       });
-    }, 60000); // her 1 dk
-
-    return () => clearInterval(bossInterval);
+    }
+    enemies.current = initEnemies;
   }, [level]);
+
+  /* HERO MOVEMENT */
+  useEffect(() => {
+    const keys: Record<string, boolean> = {};
+    const speed = 4;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      keys[e.key.toLowerCase()] = true;
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      keys[e.key.toLowerCase()] = false;
+    };
+    const move = () => {
+      setHeroPos((pos) => {
+        let nx = pos.x;
+        let ny = pos.y;
+        if (keys["w"]) ny -= speed;
+        if (keys["s"]) ny += speed;
+        if (keys["a"]) nx -= speed;
+        if (keys["d"]) nx += speed;
+        nx = Math.max(0, Math.min(800, nx));
+        ny = Math.max(0, Math.min(600, ny));
+        return { x: nx, y: ny };
+      });
+      requestAnimationFrame(move);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    move();
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
 
   /* AUTO ATTACK */
   useEffect(() => {
     const fire = setInterval(() => {
       if (!enemies.current.length) return;
-      const t = enemies.current[0];
-      const dx = t.x - hero.x;
-      const dy = t.y - hero.y;
+      const t = enemies.current.find((e) => e.hp > 0);
+      if (!t) return;
+
+      const dx = t.x - heroPos.x;
+      const dy = t.y - heroPos.y;
       const d = Math.hypot(dx, dy) || 1;
 
       const r = Math.random();
       const type: NukeType = r < 0.33 ? "lightning" : r < 0.66 ? "fire" : "ice";
 
       nukes.current.push({
-        x: hero.x,
-        y: hero.y,
+        x: heroPos.x,
+        y: heroPos.y,
         vx: (dx / d) * 6,
         vy: (dy / d) * 6,
         type,
         chainLeft: type === "lightning" ? 1 + skills.lightningChain : 0,
       });
     }, 500);
-
     return () => clearInterval(fire);
-  }, [skills, level, hero.x, hero.y]);
+  }, [skills, heroPos, level]);
 
   /* GAME LOOP */
   useEffect(() => {
@@ -169,29 +186,13 @@ export default function Page() {
 
       // Hero
       ctx.font = "28px serif";
-      ctx.fillText("👦🏻", hero.x - 10, hero.y + 10);
+      ctx.fillText("👦🏻", heroPos.x - 10, heroPos.y + 10);
 
       // Enemies
       enemies.current.forEach((e) => {
         if (e.burn > 0) {
           e.burn--;
           e.hp -= 0.02 * (1 + skills.fireDamage);
-        }
-
-        const dx = hero.x - e.x;
-        const dy = hero.y - e.y;
-        const d = Math.hypot(dx, dy) || 1;
-        const slow = Math.min(0.8, e.slow * (0.3 + skills.iceSlow * 0.2));
-
-        e.x += (dx / d) * 0.6 * (1 - slow) * enemySpeedMultiplier;
-        e.y += (dy / d) * 0.6 * (1 - slow) * enemySpeedMultiplier;
-
-        // Enemy hits hero
-        const distToHero = Math.hypot(hero.x - e.x, hero.y - e.y);
-        if (distToHero < 20) {
-          setHeroHP((hp) =>
-            Math.max(0, hp - e.damage * 0.015 * enemyDamageMultiplier)
-          );
         }
 
         // Draw enemy
@@ -203,6 +204,12 @@ export default function Page() {
           ctx.fillStyle = "#ff0000";
           ctx.fillRect(e.x - 20, e.y - 20, (e.hp / e.maxHp) * 40, 5);
         }
+
+        // Enemy hits hero if overlapping
+        const distToHero = Math.hypot(heroPos.x - e.x, heroPos.y - e.y);
+        if (distToHero < 20) {
+          setHeroHP((hp) => Math.max(0, hp - e.damage * 0.015));
+        }
       });
 
       // Nukes
@@ -210,7 +217,6 @@ export default function Page() {
         n.x += n.vx;
         n.y += n.vy;
 
-        // Nuke visual
         ctx.fillStyle =
           n.type === "lightning"
             ? "#ffff00"
@@ -228,16 +234,14 @@ export default function Page() {
         );
 
         if (hitEnemy) {
-          const baseDmg = heroDamage;
           const dmg =
-            baseDmg *
+            heroDamage *
             (1 +
               (n.type === "lightning"
                 ? skills.lightningDamage * 0.25
                 : n.type === "fire"
                 ? skills.fireDamage * 0.25
                 : skills.iceDamage * 0.25));
-
           hitEnemy.hp -= dmg;
 
           if (n.type === "ice") hitEnemy.slow = 1;
@@ -255,7 +259,6 @@ export default function Page() {
 
           return false;
         }
-
         return true;
       });
 
@@ -263,7 +266,7 @@ export default function Page() {
     };
 
     loop();
-  }, [skills, level, heroDamage, enemySpeedMultiplier, enemyDamageMultiplier]);
+  }, [skills, level, heroDamage, heroPos]);
 
   const handleReplay = () => {
     const newMaxHP = 120 + skills.hpBoost * 5;
@@ -274,14 +277,13 @@ export default function Page() {
     setExp(0);
     setLevel(1);
 
-    enemies.current = [];
+    enemies.current.forEach((e) => {
+      e.hp = e.maxHp;
+    });
+
     nukes.current = [];
     setTime(600);
-
-    setEnemySpeedMultiplier(1);
-    setEnemyDamageMultiplier(1);
-
-    setHeroDamage(12 + skills.baseDamage * 2);
+    setHeroPos({ x: 400, y: 300 });
   };
 
   if (heroHP <= 0)
