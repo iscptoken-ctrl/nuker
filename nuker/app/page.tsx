@@ -27,10 +27,23 @@ export default function Page() {
 
   const hero = { x: 400, y: 300 };
 
+  // HUD
   const [time, setTime] = useState(600);
   const [score, setScore] = useState(0);
   const [exp, setExp] = useState(0);
   const [level, setLevel] = useState(1);
+
+  // SKILLS
+  const [skillPoints, setSkillPoints] = useState(0);
+  const [showSkills, setShowSkills] = useState(false);
+  const [skills, setSkills] = useState({
+    lightningChain: 0,
+    lightningDamage: 0,
+    fireBurn: 0,
+    fireDamage: 0,
+    iceSlow: 0,
+    iceDamage: 0,
+  });
 
   const nextLevelExp = 50 * level + 50;
 
@@ -47,6 +60,7 @@ export default function Page() {
     if (exp >= nextLevelExp) {
       setExp((e) => e - nextLevelExp);
       setLevel((l) => l + 1);
+      setSkillPoints((p) => p + 1);
     }
   }, [exp, nextLevelExp]);
 
@@ -59,12 +73,12 @@ export default function Page() {
         x: Math.random() * 800,
         y: Math.random() * 600,
         type,
-        hp: type === "wolf" ? 1 : 2,
+        hp: type === "wolf" ? 1 + skills.lightningDamage : 2 + skills.lightningDamage,
         slow: 0,
       });
     }, Math.max(300, 900 - level * 50));
     return () => clearInterval(spawn);
-  }, [level]);
+  }, [level, skills.lightningDamage]);
 
   // AUTO ATTACK
   useEffect(() => {
@@ -110,6 +124,7 @@ export default function Page() {
       ctx.fillStyle = "#0b1020";
       ctx.fillRect(0, 0, 800, 600);
 
+      // HERO
       ctx.font = "32px serif";
       ctx.fillText("👦🏻", hero.x - 12, hero.y + 12);
 
@@ -126,12 +141,16 @@ export default function Page() {
 
       // ENEMIES
       enemies.current.forEach((e) => {
-        const speed = 0.6 * (1 - e.slow);
+        const slowFactor = Math.min(0.9, 0.5 + skills.iceSlow * 0.2);
+        const speed = 0.6 * (1 - e.slow * slowFactor);
+
         const dx = hero.x - e.x;
         const dy = hero.y - e.y;
         const dist = Math.hypot(dx, dy) || 1;
+
         e.x += (dx / dist) * speed;
         e.y += (dy / dist) * speed;
+
         ctx.fillText(e.type === "wolf" ? "🐺" : "🐻", e.x, e.y);
       });
 
@@ -141,7 +160,8 @@ export default function Page() {
         enemies.current = enemies.current.filter((e) => {
           if (Math.hypot(e.x - n.x, e.y - n.y) < 20) {
             e.hp--;
-            if (n.type === "ice") e.slow = 0.5;
+            if (n.type === "ice") e.slow = 1;
+
             hit = true;
 
             if (e.hp <= 0) {
@@ -153,7 +173,6 @@ export default function Page() {
                 setExp((x) => x + 20);
               }
             }
-
             return e.hp > 0;
           }
           return true;
@@ -165,7 +184,7 @@ export default function Page() {
     };
 
     loop();
-  }, []);
+  }, [skills]);
 
   return (
     <main style={{ color: "white", textAlign: "center" }}>
@@ -174,12 +193,37 @@ export default function Page() {
       {/* HUD */}
       <div style={{ display: "flex", justifyContent: "space-around" }}>
         <div>⏱️ {Math.floor(time / 60)}:{String(time % 60).padStart(2, "0")}</div>
-        <div>⭐ Score: {score}</div>
-        <div>🧪 EXP: {exp} / {nextLevelExp}</div>
+        <div>⭐ {score}</div>
+        <div>🧪 {exp}/{nextLevelExp}</div>
         <div>🆙 Lv {level}</div>
+        <button onClick={() => setShowSkills(true)}>
+          🧠 Skills ({skillPoints})
+        </button>
       </div>
 
       <canvas ref={canvasRef} />
+
+      {/* SKILL MENU */}
+      {showSkills && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.85)",
+          padding: 20
+        }}>
+          <h2>SKILLS</h2>
+
+          <button disabled={!skillPoints} onClick={() => {
+            setSkills(s => ({ ...s, iceSlow: s.iceSlow + 1 }));
+            setSkillPoints(p => p - 1);
+          }}>
+            ❄️ Ice Slow +1 ({skills.iceSlow})
+          </button>
+
+          <br /><br />
+          <button onClick={() => setShowSkills(false)}>Close</button>
+        </div>
+      )}
     </main>
   );
 }
