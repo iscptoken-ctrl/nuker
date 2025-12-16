@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 type EnemyType = "wolf" | "bear" | "boss";
+type NukeType = "lightning" | "fire" | "ice";
 
 type Enemy = {
   id: number;
@@ -15,18 +16,14 @@ type Enemy = {
   burn: number;
 };
 
-type NukeType = "lightning" | "fire" | "ice";
-
 type Nuke = {
   x: number;
   y: number;
   vx: number;
   vy: number;
   type: NukeType;
-  chainLeft?: number;
+  chainLeft: number;
 };
-
-const SAVE_KEY = "nuker_save_v1";
 
 export default function Page() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -36,13 +33,13 @@ export default function Page() {
 
   const hero = { x: 400, y: 300 };
 
-  /* ================= HUD ================= */
+  /* HUD */
   const [time, setTime] = useState(600);
   const [score, setScore] = useState(0);
   const [exp, setExp] = useState(0);
   const [level, setLevel] = useState(1);
 
-  /* ================= SKILLS ================= */
+  /* Skills */
   const [skillPoints, setSkillPoints] = useState(0);
   const [showSkills, setShowSkills] = useState(false);
   const [skills, setSkills] = useState({
@@ -54,27 +51,9 @@ export default function Page() {
     iceDamage: 0,
   });
 
-  const nextLevelExp = 60 + level * 40;
+  const nextLevelExp = 100 + (level - 1) * 50;
 
-  /* ================= SAVE / LOAD ================= */
-  useEffect(() => {
-    const save = localStorage.getItem(SAVE_KEY);
-    if (save) {
-      const s = JSON.parse(save);
-      setLevel(s.level);
-      setScore(s.score);
-      setSkills(s.skills);
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(
-      SAVE_KEY,
-      JSON.stringify({ level, score, skills })
-    );
-  }, [level, score, skills]);
-
-  /* ================= TIMER ================= */
+  /* TIMER */
   useEffect(() => {
     const t = setInterval(() => {
       setTime((v) => (v > 0 ? v - 1 : 0));
@@ -82,23 +61,21 @@ export default function Page() {
     return () => clearInterval(t);
   }, []);
 
-  /* ================= LEVEL UP ================= */
+  /* LEVEL UP */
   useEffect(() => {
     if (exp >= nextLevelExp) {
       setExp((e) => e - nextLevelExp);
       setLevel((l) => l + 1);
       setSkillPoints((p) => p + 1);
     }
-  }, [exp]);
+  }, [exp, nextLevelExp]);
 
-  /* ================= SPAWN ================= */
+  /* SPAWN */
   useEffect(() => {
     const spawn = setInterval(() => {
-      const r = Math.random();
-      let type: EnemyType = r < 0.85 ? "wolf" : "bear";
-
-      const hp =
-        type === "wolf" ? 3 : 6;
+      const isBear = Math.random() < 0.1;
+      const type: EnemyType = isBear ? "bear" : "wolf";
+      const hp = type === "wolf" ? 1 : 2;
 
       enemies.current.push({
         id: idRef.current++,
@@ -115,37 +92,17 @@ export default function Page() {
     return () => clearInterval(spawn);
   }, [level]);
 
-  /* ================= BOSS ================= */
-  useEffect(() => {
-    const boss = setInterval(() => {
-      enemies.current.push({
-        id: idRef.current++,
-        x: 100,
-        y: 100,
-        type: "boss",
-        hp: 120 + level * 30,
-        maxHp: 120 + level * 30,
-        slow: 0,
-        burn: 0,
-      });
-    }, 60000);
-
-    return () => clearInterval(boss);
-  }, [level]);
-
-  /* ================= AUTO ATTACK ================= */
+  /* AUTO ATTACK */
   useEffect(() => {
     const fire = setInterval(() => {
       if (!enemies.current.length) return;
-
       const t = enemies.current[0];
       const dx = t.x - hero.x;
       const dy = t.y - hero.y;
       const d = Math.hypot(dx, dy) || 1;
 
-      const type: NukeType =
-        Math.random() < 0.33 ? "lightning" :
-        Math.random() < 0.5 ? "fire" : "ice";
+      const r = Math.random();
+      const type: NukeType = r < 0.33 ? "lightning" : r < 0.66 ? "fire" : "ice";
 
       nukes.current.push({
         x: hero.x,
@@ -153,17 +110,14 @@ export default function Page() {
         vx: (dx / d) * 6,
         vy: (dy / d) * 6,
         type,
-        chainLeft:
-          type === "lightning"
-            ? 1 + skills.lightningChain
-            : 0,
+        chainLeft: type === "lightning" ? 1 + skills.lightningChain : 0,
       });
     }, 500);
 
     return () => clearInterval(fire);
   }, [skills]);
 
-  /* ================= GAME LOOP ================= */
+  /* GAME LOOP */
   useEffect(() => {
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
@@ -177,60 +131,36 @@ export default function Page() {
       ctx.font = "28px serif";
       ctx.fillText("👦🏻", hero.x - 10, hero.y + 10);
 
-      /* ENEMIES */
       enemies.current.forEach((e) => {
         if (e.burn > 0) {
           e.burn--;
           e.hp -= 0.02 * (1 + skills.fireDamage);
         }
 
-        const speed = e.type === "boss" ? 0.3 : 0.6;
-        const slow = Math.min(0.8, e.slow * (0.3 + skills.iceSlow * 0.2));
-
         const dx = hero.x - e.x;
         const dy = hero.y - e.y;
         const d = Math.hypot(dx, dy) || 1;
+        const slow = Math.min(0.8, e.slow * (0.3 + skills.iceSlow * 0.2));
 
-        e.x += (dx / d) * speed * (1 - slow);
-        e.y += (dy / d) * speed * (1 - slow);
+        e.x += (dx / d) * 0.6 * (1 - slow);
+        e.y += (dy / d) * 0.6 * (1 - slow);
 
-        ctx.fillText(
-          e.type === "wolf" ? "🐺" :
-          e.type === "bear" ? "🐻" : "🐘",
-          e.x,
-          e.y
-        );
-
-        /* HP BAR */
-        if (e.type === "boss") {
-          ctx.fillStyle = "red";
-          ctx.fillRect(e.x - 20, e.y - 30, 40, 4);
-          ctx.fillStyle = "lime";
-          ctx.fillRect(
-            e.x - 20,
-            e.y - 30,
-            (e.hp / e.maxHp) * 40,
-            4
-          );
-        }
+        ctx.fillText(e.type === "wolf" ? "🐺" : "🐻", e.x, e.y);
       });
 
-      /* NUKES */
       nukes.current = nukes.current.filter((n) => {
         n.x += n.vx;
         n.y += n.vy;
 
         ctx.fillText(
-          n.type === "lightning" ? "⚡" :
-          n.type === "fire" ? "🔥" : "❄️",
+          n.type === "lightning" ? "⚡" : n.type === "fire" ? "🔥" : "❄️",
           n.x,
           n.y
         );
 
         const hitEnemy = enemies.current.find(
-  (e) => Math.hypot(e.x - n.x, e.y - n.y) < 20
-);
-
+          (e) => Math.hypot(e.x - n.x, e.y - n.y) < 20
+        );
 
         if (hitEnemy) {
           const dmg =
@@ -244,32 +174,11 @@ export default function Page() {
           hitEnemy.hp -= dmg;
 
           if (n.type === "ice") hitEnemy.slow = 1;
-          if (n.type === "fire")
-            hitEnemy.burn = 180 + skills.fireBurn * 60;
-
-          /* CHAIN */
-          if (n.type === "lightning" && n.chainLeft! > 0) {
-            const next = enemies.current.find(
-              (e) =>
-                e !== hitEnemy &&
-                Math.hypot(e.x - hitEnemy!.x, e.y - hitEnemy!.y) < 120
-            );
-
-            if (next) {
-              nukes.current.push({
-                x: hitEnemy.x,
-                y: hitEnemy.y,
-                vx: (next.x - hitEnemy.x) / 10,
-                vy: (next.y - hitEnemy.y) / 10,
-                type: "lightning",
-                chainLeft: n.chainLeft! - 1,
-              });
-            }
-          }
+          if (n.type === "fire") hitEnemy.burn = 180 + skills.fireBurn * 60;
 
           if (hitEnemy.hp <= 0) {
-            setScore((s) => s + (hitEnemy.type === "boss" ? 500 : 20));
-            setExp((e) => e + (hitEnemy.type === "boss" ? 200 : 20));
+            setScore((s) => s + (hitEnemy.type === "bear" ? 25 : 10));
+            setExp((e) => e + (hitEnemy.type === "bear" ? 20 : 10));
           }
 
           enemies.current = enemies.current.filter((e) => e.hp > 0);
@@ -285,7 +194,6 @@ export default function Page() {
     loop();
   }, [skills]);
 
-  /* ================= UI ================= */
   return (
     <main style={{ color: "white", textAlign: "center" }}>
       <h1>NUKER</h1>
@@ -299,24 +207,64 @@ export default function Page() {
         </button>
       </div>
 
+      {/* EXP BAR */}
+      <div style={{ width: "80%", margin: "10px auto" }}>
+        <div style={{ fontSize: 12 }}>
+          EXP: {Math.floor(exp)} / {nextLevelExp}
+        </div>
+        <div style={{ background: "#333", height: 10, borderRadius: 6 }}>
+          <div
+            style={{
+              width: `${Math.min(100, (exp / nextLevelExp) * 100)}%`,
+              height: "100%",
+              background: "linear-gradient(90deg,#00ffcc,#00aa88)",
+              borderRadius: 6,
+            }}
+          />
+        </div>
+      </div>
+
       <canvas ref={canvasRef} />
 
       {showSkills && (
-        <div style={{ position: "fixed", inset: 0, background: "#000c" }}>
-          <h2>SKILLS</h2>
-          {Object.entries(skills).map(([k, v]) => (
-            <button
-              key={k}
-              disabled={!skillPoints}
-              onClick={() => {
-                setSkills((s) => ({ ...s, [k]: v + 1 }));
-                setSkillPoints((p) => p - 1);
-              }}
-            >
-              {k} ({v})
-            </button>
-          ))}
-          <br />
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.85)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 12,
+          }}
+        >
+          <h2>🧠 SKILLS</h2>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 200px)", gap: 12 }}>
+            {Object.entries(skills).map(([k, v]) => (
+              <div
+                key={k}
+                onClick={() => {
+                  if (!skillPoints) return;
+                  setSkills((s) => ({ ...s, [k]: v + 1 }));
+                  setSkillPoints((p) => p - 1);
+                }}
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  background: "#1a1f3c",
+                  border: "1px solid #334",
+                  cursor: skillPoints ? "pointer" : "not-allowed",
+                  opacity: skillPoints ? 1 : 0.4,
+                }}
+              >
+                <b>{k}</b>
+                <div>Level: {v}</div>
+              </div>
+            ))}
+          </div>
+
           <button onClick={() => setShowSkills(false)}>Close</button>
         </div>
       )}
