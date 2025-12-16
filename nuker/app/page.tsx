@@ -8,35 +8,73 @@ type Enemy = {
   y: number;
   type: "wolf" | "bear";
   hp: number;
+  slow: number;
+};
+
+type Nuke = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  type: "lightning" | "fire" | "ice";
 };
 
 export default function Page() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [time, setTime] = useState(600);
   const enemies = useRef<Enemy[]>([]);
-  const enemyId = useRef(0);
+  const nukes = useRef<Nuke[]>([]);
+  const idRef = useRef(0);
 
-  // TIMER
-  useEffect(() => {
-    const t = setInterval(() => {
-      setTime((v) => (v > 0 ? v - 1 : 0));
-    }, 1000);
-    return () => clearInterval(t);
-  }, []);
+  const hero = { x: 400, y: 300 };
 
   // SPAWN
   useEffect(() => {
     const spawn = setInterval(() => {
       const type = Math.random() < 0.9 ? "wolf" : "bear";
       enemies.current.push({
-        id: enemyId.current++,
+        id: idRef.current++,
         x: Math.random() * 800,
         y: Math.random() * 600,
         type,
         hp: type === "wolf" ? 1 : 2,
+        slow: 0,
       });
-    }, 800);
+    }, 900);
     return () => clearInterval(spawn);
+  }, []);
+
+  // AUTO ATTACK
+  useEffect(() => {
+    const fire = setInterval(() => {
+      if (enemies.current.length === 0) return;
+
+      const target = enemies.current.reduce((a, b) => {
+        const da = Math.hypot(a.x - hero.x, a.y - hero.y);
+        const db = Math.hypot(b.x - hero.x, b.y - hero.y);
+        return da < db ? a : b;
+      });
+
+      const dx = target.x - hero.x;
+      const dy = target.y - hero.y;
+      const d = Math.hypot(dx, dy) || 1;
+
+      const type: Nuke["type"] =
+        Math.random() < 0.33
+          ? "lightning"
+          : Math.random() < 0.5
+          ? "fire"
+          : "ice";
+
+      nukes.current.push({
+        x: hero.x,
+        y: hero.y,
+        vx: (dx / d) * 5,
+        vy: (dy / d) * 5,
+        type,
+      });
+    }, 600);
+
+    return () => clearInterval(fire);
   }, []);
 
   // GAME LOOP
@@ -46,26 +84,49 @@ export default function Page() {
     canvas.width = 800;
     canvas.height = 600;
 
-    const hero = { x: 400, y: 300 };
-
     const loop = () => {
       ctx.fillStyle = "#0b1020";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, 800, 600);
 
       // HERO
       ctx.font = "32px serif";
       ctx.fillText("👦🏻", hero.x - 12, hero.y + 12);
 
+      // NUKES
+      nukes.current.forEach((n) => {
+        n.x += n.vx;
+        n.y += n.vy;
+        ctx.fillText(
+          n.type === "lightning" ? "⚡" : n.type === "fire" ? "🔥" : "❄️",
+          n.x,
+          n.y
+        );
+      });
+
       // ENEMIES
       enemies.current.forEach((e) => {
+        const speed = 0.6 * (1 - e.slow);
         const dx = hero.x - e.x;
         const dy = hero.y - e.y;
         const dist = Math.hypot(dx, dy) || 1;
-
-        e.x += (dx / dist) * 0.5;
-        e.y += (dy / dist) * 0.5;
-
+        e.x += (dx / dist) * speed;
+        e.y += (dy / dist) * speed;
         ctx.fillText(e.type === "wolf" ? "🐺" : "🐻", e.x, e.y);
+      });
+
+      // COLLISION
+      nukes.current = nukes.current.filter((n) => {
+        let hit = false;
+        enemies.current = enemies.current.filter((e) => {
+          if (Math.hypot(e.x - n.x, e.y - n.y) < 20) {
+            e.hp--;
+            if (n.type === "ice") e.slow = 0.5;
+            hit = true;
+            return e.hp > 0;
+          }
+          return true;
+        });
+        return !hit;
       });
 
       requestAnimationFrame(loop);
@@ -75,16 +136,9 @@ export default function Page() {
   }, []);
 
   return (
-    <main style={{ color: "white", textAlign: "center" }}>
+    <main style={{ textAlign: "center", color: "white" }}>
       <h1>NUKER</h1>
-      <p>
-        Kalan Süre: {Math.floor(time / 60)}:
-        {String(time % 60).padStart(2, "0")}
-      </p>
-      <canvas
-        ref={canvasRef}
-        style={{ border: "1px solid #333", background: "#000" }}
-      />
+      <canvas ref={canvasRef} />
     </main>
   );
 }
