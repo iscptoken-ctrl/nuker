@@ -227,13 +227,10 @@ export default function Page() {
           n.y
         );
 
-        let hitEnemy: Enemy | null = null;
+        const hitEnemy = enemies.current.find(
+  (e) => Math.hypot(e.x - n.x, e.y - n.y) < 20
+);
 
-        enemies.current.forEach((e) => {
-          if (Math.hypot(e.x - n.x, e.y - n.y) < 20 && !hitEnemy) {
-            hitEnemy = e;
-          }
-        });
 
         if (hitEnemy) {
           const dmg =
