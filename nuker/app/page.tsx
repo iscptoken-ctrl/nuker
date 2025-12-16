@@ -14,6 +14,7 @@ type Enemy = {
   maxHp: number;
   slow: number;
   burn: number;
+  damage: number;
 };
 
 type Nuke = {
@@ -31,15 +32,17 @@ export default function Page() {
   const nukes = useRef<Nuke[]>([]);
   const idRef = useRef(0);
 
-  const hero = { x: 400, y: 300 };
-
-  /* HUD */
   const [time, setTime] = useState(600);
   const [score, setScore] = useState(0);
   const [exp, setExp] = useState(0);
   const [level, setLevel] = useState(1);
 
-  /* Skills */
+  /* HERO */
+  const [heroHP, setHeroHP] = useState(100);
+  const [heroMaxHP, setHeroMaxHP] = useState(100);
+  const hero = { x: 400, y: 300 };
+
+  /* SKILLS */
   const [skillPoints, setSkillPoints] = useState(0);
   const [showSkills, setShowSkills] = useState(false);
   const [skills, setSkills] = useState({
@@ -49,6 +52,7 @@ export default function Page() {
     fireDamage: 0,
     iceSlow: 0,
     iceDamage: 0,
+    hpBoost: 0, // NEW
   });
 
   const nextLevelExp = 100 + (level - 1) * 50;
@@ -67,27 +71,37 @@ export default function Page() {
       setExp((e) => e - nextLevelExp);
       setLevel((l) => l + 1);
       setSkillPoints((p) => p + 1);
+
+      // Hero max HP scaling
+      const newMax = 100 + level * 10 + skills.hpBoost * 5;
+      setHeroMaxHP(newMax);
+      setHeroHP(newMax); // heal full on level up
     }
-  }, [exp, nextLevelExp]);
+  }, [exp, nextLevelExp, level, skills.hpBoost]);
 
   /* SPAWN */
   useEffect(() => {
     const spawn = setInterval(() => {
-      const isBear = Math.random() < 0.1;
+      const r = Math.random();
+      const isBear = r < 0.1;
       const type: EnemyType = isBear ? "bear" : "wolf";
-      const hp = type === "wolf" ? 1 : 2;
+      const baseHP = type === "wolf" ? 10 : 25;
+      const multiplier = type === "wolf" ? 3 : 6;
+
+      const dmg = type === "wolf" ? 1 + level : 3 + level * 1.5;
 
       enemies.current.push({
         id: idRef.current++,
         x: Math.random() * 800,
         y: Math.random() * 600,
         type,
-        hp,
-        maxHp: hp,
+        hp: baseHP + level * multiplier,
+        maxHp: baseHP + level * multiplier,
         slow: 0,
         burn: 0,
+        damage: dmg,
       });
-    }, Math.max(300, 900 - level * 40));
+    }, Math.max(300, 900 - level * 35));
 
     return () => clearInterval(spawn);
   }, [level]);
@@ -115,7 +129,7 @@ export default function Page() {
     }, 500);
 
     return () => clearInterval(fire);
-  }, [skills]);
+  }, [skills, level]);
 
   /* GAME LOOP */
   useEffect(() => {
@@ -128,9 +142,11 @@ export default function Page() {
       ctx.fillStyle = "#0b1020";
       ctx.fillRect(0, 0, 800, 600);
 
+      // Hero
       ctx.font = "28px serif";
       ctx.fillText("👦🏻", hero.x - 10, hero.y + 10);
 
+      // Enemies
       enemies.current.forEach((e) => {
         if (e.burn > 0) {
           e.burn--;
@@ -145,9 +161,16 @@ export default function Page() {
         e.x += (dx / d) * 0.6 * (1 - slow);
         e.y += (dy / d) * 0.6 * (1 - slow);
 
+        // Enemy hits hero
+        const distToHero = Math.hypot(hero.x - e.x, hero.y - e.y);
+        if (distToHero < 20) {
+          setHeroHP((hp) => Math.max(0, hp - e.damage * 0.02));
+        }
+
         ctx.fillText(e.type === "wolf" ? "🐺" : "🐻", e.x, e.y);
       });
 
+      // Nukes
       nukes.current = nukes.current.filter((n) => {
         n.x += n.vx;
         n.y += n.vy;
@@ -163,13 +186,15 @@ export default function Page() {
         );
 
         if (hitEnemy) {
+          const baseDmg = 4 + level * 1.5;
           const dmg =
-            1 +
-            (n.type === "lightning"
-              ? skills.lightningDamage
-              : n.type === "fire"
-              ? skills.fireDamage
-              : skills.iceDamage);
+            baseDmg *
+            (1 +
+              (n.type === "lightning"
+                ? skills.lightningDamage * 0.25
+                : n.type === "fire"
+                ? skills.fireDamage * 0.25
+                : skills.iceDamage * 0.25));
 
           hitEnemy.hp -= dmg;
 
@@ -179,9 +204,9 @@ export default function Page() {
           if (hitEnemy.hp <= 0) {
             setScore((s) => s + (hitEnemy.type === "bear" ? 25 : 10));
             setExp((e) => e + (hitEnemy.type === "bear" ? 20 : 10));
+            enemies.current = enemies.current.filter((en) => en.hp > 0);
           }
 
-          enemies.current = enemies.current.filter((e) => e.hp > 0);
           return false;
         }
 
@@ -192,19 +217,38 @@ export default function Page() {
     };
 
     loop();
-  }, [skills]);
+  }, [skills, level]);
+
+  if (heroHP <= 0)
+    return (
+      <main style={{ color: "white", textAlign: "center" }}>
+        <h1>💀 GAME OVER 💀</h1>
+        <p>Score: {score}</p>
+        <button
+          onClick={() => {
+            setHeroHP(heroMaxHP);
+            enemies.current = [];
+            nukes.current = [];
+            setTime(600);
+          }}
+        >
+          Replay
+        </button>
+      </main>
+    );
 
   return (
     <main style={{ color: "white", textAlign: "center" }}>
       <h1>NUKER</h1>
 
-      <div style={{ display: "flex", justifyContent: "space-around" }}>
+      <div style={{ display: "flex", justifyContent: "space-around", alignItems: "center" }}>
         <div>⏱ {Math.floor(time / 60)}:{String(time % 60).padStart(2, "0")}</div>
         <div>⭐ {score}</div>
         <div>🆙 Lv {level}</div>
-        <button onClick={() => setShowSkills(true)}>
-          🧠 Skills ({skillPoints})
-        </button>
+        <div>
+          ❤️ {Math.floor(heroHP)} / {heroMaxHP}
+        </div>
+        <button onClick={() => setShowSkills(true)}>🧠 Skills ({skillPoints})</button>
       </div>
 
       {/* EXP BAR */}
@@ -226,6 +270,7 @@ export default function Page() {
 
       <canvas ref={canvasRef} />
 
+      {/* Skills Popup */}
       {showSkills && (
         <div
           style={{
@@ -241,7 +286,13 @@ export default function Page() {
         >
           <h2>🧠 SKILLS</h2>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 200px)", gap: 12 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2, 200px)",
+              gap: 12,
+            }}
+          >
             {Object.entries(skills).map(([k, v]) => (
               <div
                 key={k}
@@ -249,6 +300,12 @@ export default function Page() {
                   if (!skillPoints) return;
                   setSkills((s) => ({ ...s, [k]: v + 1 }));
                   setSkillPoints((p) => p - 1);
+
+                  if (k === "hpBoost") {
+                    const newMax = 100 + level * 10 + (v + 1) * 5;
+                    setHeroMaxHP(newMax);
+                    setHeroHP(newMax);
+                  }
                 }}
                 style={{
                   padding: 12,
@@ -259,7 +316,13 @@ export default function Page() {
                   opacity: skillPoints ? 1 : 0.4,
                 }}
               >
-                <b>{k}</b>
+                <b>
+                  {k
+                    .replace("lightning", "⚡ Lightning ")
+                    .replace("fire", "🔥 Fire ")
+                    .replace("ice", "❄️ Ice ")
+                    .replace("hpBoost", "❤️ HP Boost ")}
+                </b>
                 <div>Level: {v}</div>
               </div>
             ))}
