@@ -38,9 +38,9 @@ export default function Page() {
   const [level, setLevel] = useState(1);
 
   /* HERO */
-  const [heroHP, setHeroHP] = useState(120); // base HP
+  const [heroHP, setHeroHP] = useState(120);
   const [heroMaxHP, setHeroMaxHP] = useState(120);
-  const [heroDamage, setHeroDamage] = useState(12); // base damage
+  const [heroDamage, setHeroDamage] = useState(12);
   const hero = { x: 400, y: 300 };
 
   /* SKILLS */
@@ -81,7 +81,7 @@ export default function Page() {
       setHeroMaxHP(newMax);
       setHeroHP(newMax);
 
-      setHeroDamage(12 + skills.baseDamage * 2 + level); // update damage
+      setHeroDamage(12 + skills.baseDamage * 2 + level);
     }
   }, [exp, nextLevelExp, level, skills.hpBoost, skills.baseDamage]);
 
@@ -92,7 +92,6 @@ export default function Page() {
       const isBear = r < 0.1;
       const type: EnemyType = isBear ? "bear" : "wolf";
 
-      // Daha kolay: HP azaltıldı
       const baseHP = type === "wolf" ? 5 : 15;
       const multiplier = type === "wolf" ? 2 : 5;
       const dmg = type === "wolf" ? 1 + level : 3 + level * 1.2;
@@ -239,20 +238,14 @@ export default function Page() {
 
     enemies.current = [];
     nukes.current = [];
-
     setTime(600);
 
-    // Hafif artış → artık çok sert değil
-    setEnemySpeedMultiplier(1.05);
-    setEnemyDamageMultiplier(1.05);
+    // Multiplier sıfırlanıyor
+    setEnemySpeedMultiplier(1);
+    setEnemyDamageMultiplier(1);
 
-    setHeroDamage((prev) => prev + 2);
-    setHeroMaxHP((prev) => prev + 10);
-    setHeroHP((prev) => prev + 10);
-
-    const canvas = canvasRef.current!;
-    const ctx = canvas.getContext("2d")!;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Hero base güçlendirme
+    setHeroDamage(12 + skills.baseDamage * 2);
   };
 
   if (heroHP <= 0)
