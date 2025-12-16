@@ -73,7 +73,10 @@ export default function Page() {
         x: Math.random() * 800,
         y: Math.random() * 600,
         type,
-        hp: type === "wolf" ? 1 + skills.lightningDamage : 2 + skills.lightningDamage,
+        hp:
+          type === "wolf"
+            ? 1 + skills.lightningDamage
+            : 2 + skills.lightningDamage,
         slow: 0,
       });
     }, Math.max(300, 900 - level * 50));
@@ -141,8 +144,8 @@ export default function Page() {
 
       // ENEMIES
       enemies.current.forEach((e) => {
-        const slowFactor = Math.min(0.9, 0.5 + skills.iceSlow * 0.2);
-        const speed = 0.6 * (1 - e.slow * slowFactor);
+        const slowPower = Math.min(0.9, 0.5 + skills.iceSlow * 0.2);
+        const speed = 0.6 * (1 - e.slow * slowPower);
 
         const dx = hero.x - e.x;
         const dy = hero.y - e.y;
@@ -205,19 +208,56 @@ export default function Page() {
 
       {/* SKILL MENU */}
       {showSkills && (
-        <div style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.85)",
-          padding: 20
-        }}>
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.85)",
+            padding: 20,
+          }}
+        >
           <h2>SKILLS</h2>
 
+          <h3>⚡ Lightning</h3>
+          <button disabled={!skillPoints} onClick={() => {
+            setSkills(s => ({ ...s, lightningChain: s.lightningChain + 1 }));
+            setSkillPoints(p => p - 1);
+          }}>
+            Chain ({skills.lightningChain})
+          </button>
+          <button disabled={!skillPoints} onClick={() => {
+            setSkills(s => ({ ...s, lightningDamage: s.lightningDamage + 1 }));
+            setSkillPoints(p => p - 1);
+          }}>
+            Damage ({skills.lightningDamage})
+          </button>
+
+          <h3>🔥 Fire</h3>
+          <button disabled={!skillPoints} onClick={() => {
+            setSkills(s => ({ ...s, fireBurn: s.fireBurn + 1 }));
+            setSkillPoints(p => p - 1);
+          }}>
+            Burn ({skills.fireBurn})
+          </button>
+          <button disabled={!skillPoints} onClick={() => {
+            setSkills(s => ({ ...s, fireDamage: s.fireDamage + 1 }));
+            setSkillPoints(p => p - 1);
+          }}>
+            Damage ({skills.fireDamage})
+          </button>
+
+          <h3>❄️ Ice</h3>
           <button disabled={!skillPoints} onClick={() => {
             setSkills(s => ({ ...s, iceSlow: s.iceSlow + 1 }));
             setSkillPoints(p => p - 1);
           }}>
-            ❄️ Ice Slow +1 ({skills.iceSlow})
+            Slow ({skills.iceSlow})
+          </button>
+          <button disabled={!skillPoints} onClick={() => {
+            setSkills(s => ({ ...s, iceDamage: s.iceDamage + 1 }));
+            setSkillPoints(p => p - 1);
+          }}>
+            Damage ({skills.iceDamage})
           </button>
 
           <br /><br />
