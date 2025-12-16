@@ -72,10 +72,9 @@ export default function Page() {
       setLevel((l) => l + 1);
       setSkillPoints((p) => p + 1);
 
-      // Hero max HP scaling
       const newMax = 100 + level * 10 + skills.hpBoost * 5;
       setHeroMaxHP(newMax);
-      setHeroHP(newMax); // heal full on level up
+      setHeroHP(newMax);
     }
   }, [exp, nextLevelExp, level, skills.hpBoost]);
 
@@ -101,7 +100,7 @@ export default function Page() {
         burn: 0,
         damage: dmg,
       });
-    }, Math.max(300, 900 - level * 35));
+    }, Math.max(1200 - level * 30, 400));
 
     return () => clearInterval(spawn);
   }, [level]);
@@ -225,7 +224,7 @@ export default function Page() {
     setHeroMaxHP(newMaxHP);
     setHeroHP(newMaxHP);
 
-    // Reset score and level
+    // Reset score, level, exp
     setScore(0);
     setExp(0);
     setLevel(1);
@@ -233,7 +232,14 @@ export default function Page() {
     // Clear enemies and nukes
     enemies.current = [];
     nukes.current = [];
+
+    // Reset timer
     setTime(600);
+
+    // Clear canvas to prevent black screen
+    const canvas = canvasRef.current!;
+    const ctx = canvas.getContext("2d")!;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
   if (heroHP <= 0)
